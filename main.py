@@ -132,6 +132,7 @@ class GoalsPanel(ctk.CTkFrame):
         elapsed  = (date.today() - start_dt).days
         progress = min(elapsed / max(dur, 1), 1.0)
         pct      = int(progress * 100)
+        done     = pct >= 100
 
         header = ctk.CTkFrame(card, fg_color="transparent")
         header.pack(fill="x", padx=16, pady=(12, 4))
@@ -143,17 +144,73 @@ class GoalsPanel(ctk.CTkFrame):
                      text_color=MUTED, font=ctk.CTkFont(size=12)).pack(side="right")
 
         bar = ctk.CTkProgressBar(card, height=8, corner_radius=4,
-                                  progress_color=GREEN if pct >= 100 else ACCENT)
+                                  progress_color=GREEN if done else ACCENT)
         bar.pack(fill="x", padx=16, pady=(0, 4))
         bar.set(progress)
 
         ctk.CTkLabel(card, text=f"{pct}% complete",
                      text_color=MUTED, font=ctk.CTkFont(size=11)).pack(anchor="w", padx=16)
 
-        ctk.CTkButton(card, text="Archive", fg_color="transparent",
-                      text_color=MUTED, hover_color=GREY, height=24,
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=12, pady=(4, 8))
+
+        if done:
+            ctk.CTkButton(
+                btn_row, text="✓ Complete — Restart?",
+                fg_color=GREEN, hover_color="#2e7d4f", text_color="#ffffff",
+                height=28, corner_radius=8, font=ctk.CTkFont(size=12),
+                command=lambda i=gid, n=name, d=dur: self._complete_goal(i, n, d)
+            ).pack(side="left")
+
+        ctk.CTkButton(btn_row, text="Archive", fg_color="transparent",
+                      text_color=MUTED, hover_color=GREY, height=28,
                       font=ctk.CTkFont(size=11),
-                      command=lambda i=gid: self._archive(i)).pack(anchor="e", padx=12, pady=(0, 8))
+                      command=lambda i=gid: self._archive(i)).pack(side="right")
+
+    def _complete_goal(self, gid, name, dur):
+        """Popup when a goal is completed — restart or archive."""
+        dialog = ctk.CTkToplevel()
+        dialog.title("Goal Complete! 🎉")
+        dialog.geometry("360x200")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.configure(fg_color=BG)
+
+        ctk.CTkLabel(dialog,
+                     text=f"🎉 You completed\n\"{name}\"!",
+                     font=ctk.CTkFont(size=15, weight="bold"),
+                     text_color=TEXT, justify="center").pack(pady=(24, 8))
+
+        ctk.CTkLabel(dialog,
+                     text="Would you like to restart it or archive it?",
+                     text_color=MUTED, font=ctk.CTkFont(size=12)).pack(pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_row.pack()
+
+        def restart():
+            con = get_con()
+            con.execute("UPDATE goals SET start_date=? WHERE id=?",
+                        (date.today().isoformat(), gid))
+            con.commit()
+            con.close()
+            dialog.destroy()
+            self._build()
+
+        def archive():
+            con = get_con()
+            con.execute("UPDATE goals SET archived=1 WHERE id=?", (gid,))
+            con.commit()
+            con.close()
+            dialog.destroy()
+            self._build()
+
+        ctk.CTkButton(btn_row, text="🔄 Restart", fg_color=ACCENT,
+                      hover_color="#c73652", width=120, height=36,
+                      command=restart).pack(side="left", padx=8)
+        ctk.CTkButton(btn_row, text="Archive", fg_color=GREY,
+                      hover_color="#555", width=120, height=36,
+                      command=archive).pack(side="left", padx=8)
 
     def _add_goal(self):
         name = self.goal_name.get().strip()
