@@ -2,7 +2,7 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -16,15 +16,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install customtkinter pillow pyinstaller
 
       - name: Build EXE
-        run: pyinstaller --onefile --windowed --name "DailyCompanion" main.py
+        run: |
+          pyinstaller --onefile --windowed --name "DailyCompanion" --collect-all customtkinter main.py
 
-      - name: Upload EXE artifact
+      - name: Upload EXE as artifact
         uses: actions/upload-artifact@v4
         with:
           name: DailyCompanion-Windows
